@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-boot-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spring-boot
+  template:
+    metadata:
+      labels:
+        app: spring-boot
+    spec:
+      containers:
+        - name: spring-boot-container
+          # IMPORTANTE: Este tag será reemplazado por el Jenkinsfile
+          image: mi-app-spring-boot:latest
+          # Nunca uses 'latest' en producción. Es solo para este ejemplo local.
+          imagePullPolicy: IfNotPresent # Para que K8s use la imagen local de Docker
+          ports:
+            - containerPort: 8080
+          env:
+            - name: MY_APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  # El nombre del secreto creado en secret.yml
+                  name: app-secret
+                  # La clave dentro de ese secreto
+                  key: api-key

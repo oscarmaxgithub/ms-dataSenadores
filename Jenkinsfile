@@ -24,6 +24,12 @@ pipeline {
             }
         }
 
+        stage('Build & Test') {
+            steps {
+                // Compila el JAR
+                sh 'mvn clean package -DskipTests=false'
+            }
+        }
         stage('Análisis de Calidad (SonarQube)') {
             steps {
                 script {
@@ -68,12 +74,6 @@ pipeline {
             }
         }
 
-        stage('Build & Test') {
-            steps {
-                // Compila el JAR
-                sh 'mvn clean package -DskipTests=false'
-            }
-        }
 
         stage('Construir Imagen Docker') {
             steps {

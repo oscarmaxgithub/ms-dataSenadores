@@ -7,7 +7,7 @@ pipeline {
         // Credenciales configuradas en Jenkins
         DOCKER_CREDS = credentials('docker-hub-creds')
         // Llave del proyecto definida en SonarQube
-        SONAR_PROJECT_KEY = "microservicio-springboot"
+        SONAR_PROJECT_KEY = "microservicio_spring_boot"
     }
 
     tools {

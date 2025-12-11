@@ -51,7 +51,7 @@ pipeline {
         stage('Análisis de Seguridad (OWASP)') {
             steps {
                 // Busca vulnerabilidades en las librerías del pom.xml
-                dependencyCheck additionalArguments: '--format HTML --out dependency-check-report.html', odometerAnalysisEnabled: false
+                dependencyCheck additionalArguments: '--format HTML --out dependency-check-report.html'
             }
             post {
                 always {

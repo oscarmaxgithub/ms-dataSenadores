@@ -13,7 +13,7 @@ pipeline {
     tools {
         // Nombres tal cual los configuraste en "Global Tool Configuration"
         maven 'Maven-Local'
-        jdk 'Java-17'
+        jdk 'Java 17'
     }
 
     stages {

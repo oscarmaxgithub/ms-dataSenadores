@@ -13,7 +13,7 @@ pipeline {
     tools {
         // Nombres tal cual los configuraste en "Global Tool Configuration"
         maven 'Maven-Local'
-        jdk 'Java 17'
+        jdk 'Java-17'
     }
 
     stages {
@@ -50,8 +50,8 @@ pipeline {
 
         stage('Análisis de Seguridad (OWASP)') {
             steps {
-                // Busca vulnerabilidades en las librerías del pom.xml
-                dependencyCheck additionalArguments: '--format HTML --out dependency-check-report.html'
+                // CORRECCIÓN: Se agrega 'odcInstallation' apuntando al nombre configurado en Global Tools
+                dependencyCheck additionalArguments: '--format HTML --out dependency-check-report.html', odcInstallation: 'dependency-check'
             }
             post {
                 always {
@@ -99,11 +99,11 @@ pipeline {
         stage('Desplegar en Kubernetes') {
             steps {
                 script {
-                    // Usamos sed para inyectar la versión correcta de la imagen en el YAML
-                    sh "sed -i 's|IMAGE_PLACEHOLDER|${IMAGE_NAME}:${env.BUILD_NUMBER}|g' k8s-deployment.yaml"
+                    // CORRECCIÓN: Actualizado para usar la carpeta 'k8s/' y el archivo 'deployment.yml'
+                    sh "sed -i 's|IMAGE_PLACEHOLDER|${IMAGE_NAME}:${env.BUILD_NUMBER}|g' k8s/deployment.yml"
 
-                    // Aplicamos la configuración
-                    sh "kubectl apply -f k8s-deployment.yaml"
+                    // Aplicamos TODA la carpeta (Secret, Service y Deployment)
+                    sh "kubectl apply -f k8s/"
                 }
             }
         }

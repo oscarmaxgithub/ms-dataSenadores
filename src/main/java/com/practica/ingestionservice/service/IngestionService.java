@@ -1,6 +1,5 @@
 package com.practica.ingestionservice.service;
 
-import com.practica.ingestionservice.dto.SenadorApiResponse;
 import com.practica.ingestionservice.dto.SenadorDto;
 import com.practica.ingestionservice.entity.SenadorEntity;
 import com.practica.ingestionservice.repository.SenadorRepository;
@@ -17,9 +16,9 @@ import reactor.core.publisher.Mono;
 
 @Service
 @AllArgsConstructor
-public class IngestationService {
+public class IngestionService {
 
-    private static final Logger log = LoggerFactory.getLogger(IngestationService.class);
+    private static final Logger log = LoggerFactory.getLogger(IngestionService.class);
 //    private final WebClient webClient = WebClient.create("https://api.argentinadatos.com/v1/senado");
     private final WebClient webClient ;
     private final SenadorMapper senadorMapper;

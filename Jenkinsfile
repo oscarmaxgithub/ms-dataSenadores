@@ -2,101 +2,119 @@ pipeline {
     agent any
 
     environment {
-        // Usamos el nombre del servicio de Docker Compose como host
-        SONARQUBE_URL = 'http://sonarqube:9000'
-        // El nombre de la imagen Docker que vamos a construir
-        DOCKER_IMAGE_NAME = 'mi-app-spring-boot'
-        // Tag de la imagen, usando el número de build de Jenkins
-        DOCKER_IMAGE_TAG = "v${env.BUILD_NUMBER}"
+        // Nombre de la imagen en DockerHub
+        IMAGE_NAME = "oscarmax/ingestion-service"
+        // Credenciales configuradas en Jenkins
+        DOCKER_CREDS = credentials('docker-hub-creds')
+        // Llave del proyecto definida en SonarQube
+        SONAR_PROJECT_KEY = "microservicio-springboot"
+    }
+
+    tools {
+        // Nombres tal cual los configuraste en "Global Tool Configuration"
+        maven 'Maven-Local'
+        jdk 'Java-17'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // 'checkout scm' usa automáticamente la configuración SCM
-                // del Job de Jenkins (URL de GitHub y credenciales).
-                // ¡Esto es mucho más limpio y seguro!
+                // Descarga el código del repositorio que disparó el webhook
                 checkout scm
             }
         }
 
-        stage('Build & Code Style') {
+        stage('Análisis de Calidad (SonarQube)') {
             steps {
                 script {
-                    echo 'Compilando y ejecutando Checkstyle con Maven...'
-                    // El plugin de checkstyle se ejecuta en la fase 'verify'
-                    sh 'mvn clean verify'
-                }
-            }
-        }
-
-        stage('Code Quality Analysis') {
-            steps {
-                script {
-                    echo "Ejecutando análisis de SonarQube..."
-                    // El sonar-scanner debe estar configurado en Jenkins
-                    withSonarQubeEnv('SonarQubeLocal') {
-                        sh '''
-                            mvn sonar:sonar \
-                              -Dsonar.host.url=${SONARQUBE_URL} \
-                              -Dsonar.projectKey=mi-proyecto-java \
-                              -Dsonar.projectName="Mi Proyecto Java"
-                        '''
+                    // Escanea el código buscando bugs, code smells y duplicidad
+                    def scannerHome = tool 'SonarQubeScanner'
+                    withSonarQubeEnv('SonarQube-Server') {
+                        sh "${scannerHome}/bin/sonar-scanner \
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                        -Dsonar.sources=src/main/java \
+                        -Dsonar.java.binaries=target/classes"
                     }
                 }
             }
         }
 
-        // Puedes agregar una etapa de seguridad aquí con Trivy o Snyk
-        stage('Security Scan') {
+        stage('Quality Gate') {
             steps {
-                script {
-                    echo "Ejecutando scan de vulnerabilidades con Trivy..."
-                    // Escanea el proyecto en busca de vulnerabilidades en las dependencias
-                    sh 'docker run --rm -v $(pwd):/app aquasec/trivy fs /app'
+                // Espera a que SonarQube decida si el código aprueba o reprueba
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Análisis de Seguridad (OWASP)') {
             steps {
-                script {
-                    echo "Construyendo imagen Docker: ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
-                    // Construye la imagen usando el Dockerfile del repositorio
-                    sh "docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ."
-
-                    // Importante para Kubernetes local:
-                    // Si tu cluster de K8s (Docker Desktop) no ve la imagen,
-                    // es posible que necesites cargarla en el registro del cluster.
-                    // Para Minikube sería: minikube image load ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
-                    // Para Docker Desktop, usualmente no es necesario si usan el mismo daemon.
+                // Busca vulnerabilidades en las librerías del pom.xml
+                dependencyCheck additionalArguments: '--format HTML --out dependency-check-report.html', odometerAnalysisEnabled: false
+            }
+            post {
+                always {
+                    // Publica el reporte en Jenkins para que puedas verlo
+                    publishHTML (target: [
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: false,
+                        keepAll: true,
+                        reportDir: '.',
+                        reportFiles: 'dependency-check-report.html',
+                        reportName: 'OWASP Dependency Check'
+                    ])
                 }
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Build & Test') {
+            steps {
+                // Compila el JAR
+                sh 'mvn clean package -DskipTests=false'
+            }
+        }
+
+        stage('Construir Imagen Docker') {
             steps {
                 script {
-                    echo "Desplegando en Kubernetes..."
-                    // Primero, aplicamos los secretos de forma segura
-                    sh 'kubectl apply -f k8s/secret.yml'
+                    // Construye la imagen etiquetada con el número de build
+                    docker.build("${IMAGE_NAME}:${env.BUILD_NUMBER}")
+                    docker.build("${IMAGE_NAME}:latest")
+                }
+            }
+        }
 
-                    // Luego, actualizamos la imagen del deployment y aplicamos
-                    // Usamos 'sed' para reemplazar el placeholder del tag en el manifiesto
-                    sh "sed -i.bak 's|image: .*|image: ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}|g' k8s/deployment.yml"
-                    sh 'kubectl apply -f k8s/deployment.yml'
-                    sh 'kubectl apply -f k8s/service.yml'
+        stage('Push a Docker Hub') {
+            steps {
+                script {
+                    docker.withRegistry('', 'docker-hub-creds') {
+                        docker.image("${IMAGE_NAME}:${env.BUILD_NUMBER}").push()
+                        docker.image("${IMAGE_NAME}:latest").push()
+                    }
+                }
+            }
+        }
 
-                    echo "Despliegue completado."
+        stage('Desplegar en Kubernetes') {
+            steps {
+                script {
+                    // Usamos sed para inyectar la versión correcta de la imagen en el YAML
+                    sh "sed -i 's|IMAGE_PLACEHOLDER|${IMAGE_NAME}:${env.BUILD_NUMBER}|g' k8s-deployment.yaml"
+
+                    // Aplicamos la configuración
+                    sh "kubectl apply -f k8s-deployment.yaml"
                 }
             }
         }
     }
 
     post {
-        always {
-            echo 'Limpiando el workspace...'
-            cleanWs()
+        success {
+            echo '¡Despliegue Exitoso!'
+        }
+        failure {
+            echo 'El pipeline falló. Revisa los logs.'
         }
     }
 }

@@ -1,8 +1,7 @@
 package com.practica.ingestionservice.controller;
 
-import com.practica.ingestionservice.dto.SenadorDto;
 import com.practica.ingestionservice.entity.SenadorEntity;
-import com.practica.ingestionservice.service.IngestationService;
+import com.practica.ingestionservice.service.IngestionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -12,9 +11,9 @@ import java.util.List;
 
 @RestController
 public class IngestionController {
-    private final IngestationService ingestionService;
+    private final IngestionService ingestionService;
 
-    public IngestionController(IngestationService ingestionService) {
+    public IngestionController(IngestionService ingestionService) {
         this.ingestionService = ingestionService;
     }
 

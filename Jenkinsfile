@@ -26,14 +26,25 @@ pipeline {
 
         stage('Build & Test') {
             steps {
-                // Compila el JAR
-                sh 'mvn clean package -DskipTests=false'
+                // MEJOR PRÁCTICA: Inyección segura de credenciales.
+                // 'postgres-db-creds' es el ID que creaste en Jenkins -> Credentials.
+                withCredentials([usernamePassword(credentialsId: 'postgres-db-creds', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASS')]) {
+                    // Usamos comillas dobles "" para que Groovy interpole las variables ${DB_USER}
+                    // Jenkins ocultará automáticamente los valores reales en los logs poniendo ****
+                    sh """
+                        mvn clean package -DskipTests=false \
+                        -Dspring.datasource.url=jdbc:postgresql://nombre-contenedor-postgres:5432/nombre_bd \
+                        -Dspring.datasource.username=${DB_USER} \
+                        -Dspring.datasource.password=${DB_PASS}
+                    """
+                }
             }
         }
+
         stage('Análisis de Calidad (SonarQube)') {
             steps {
                 script {
-                    // Escanea el código buscando bugs, code smells y duplicidad
+                    // Ahora sí encontrará 'target/classes' porque compilamos en el paso anterior
                     def scannerHome = tool 'SonarQubeScanner'
                     withSonarQubeEnv('SonarQube-Server') {
                         sh "${scannerHome}/bin/sonar-scanner \
@@ -56,12 +67,11 @@ pipeline {
 
         stage('Análisis de Seguridad (OWASP)') {
             steps {
-                // CORRECCIÓN: Se agrega 'odcInstallation' apuntando al nombre configurado en Global Tools
+                // Busca vulnerabilidades en las librerías
                 dependencyCheck additionalArguments: '--format HTML --out dependency-check-report.html', odcInstallation: 'dependency-check'
             }
             post {
                 always {
-                    // Publica el reporte en Jenkins para que puedas verlo
                     publishHTML (target: [
                         allowMissing: false,
                         alwaysLinkToLastBuild: false,
@@ -73,7 +83,6 @@ pipeline {
                 }
             }
         }
-
 
         stage('Construir Imagen Docker') {
             steps {
@@ -99,10 +108,8 @@ pipeline {
         stage('Desplegar en Kubernetes') {
             steps {
                 script {
-                    // CORRECCIÓN: Actualizado para usar la carpeta 'k8s/' y el archivo 'deployment.yml'
+                    // Actualiza el manifiesto y aplica cambios
                     sh "sed -i 's|IMAGE_PLACEHOLDER|${IMAGE_NAME}:${env.BUILD_NUMBER}|g' k8s/deployment.yml"
-
-                    // Aplicamos TODA la carpeta (Secret, Service y Deployment)
                     sh "kubectl apply -f k8s/"
                 }
             }

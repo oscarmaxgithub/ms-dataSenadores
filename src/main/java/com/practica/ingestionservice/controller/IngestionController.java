@@ -17,13 +17,13 @@ public class IngestionController {
         this.ingestionService = ingestionService;
     }
 
-    @PostMapping("/ingest-senado")
-    public Mono<ResponseEntity<String>> ingestData() {
-        return ingestionService.fetchAndSaveSenadores()
-                .collectList()
-                .map(results -> ResponseEntity.ok(String.format("Ingesta completada. Actas procesadas: %d", results.size())))
-                .onErrorResume(e -> Mono.just(ResponseEntity.status(500).body(String.format("Error durante la ingesta: %s", e.getMessage()))));
-    }
+//    @PostMapping("/ingest-senado")
+//    public Mono<ResponseEntity<String>> ingestData() {
+//        return ingestionService.fetchAndSaveSenadores()
+//                .collectList()
+//                .map(results -> ResponseEntity.ok(String.format("Ingesta completada. Actas procesadas: %d", results.size())))
+//                .onErrorResume(e -> Mono.just(ResponseEntity.status(500).body(String.format("Error durante la ingesta: %s", e.getMessage()))));
+//    }
 
     @PostMapping("/senadores")
     public Mono<List<SenadorEntity>> getDataSenadores() {

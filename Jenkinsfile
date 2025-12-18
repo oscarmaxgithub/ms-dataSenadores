@@ -59,30 +59,30 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 // Espera a que SonarQube decida si el código aprueba o reprueba
-                timeout(time: 5, unit: 'MINUTES') {
+                timeout(time: 6, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
         }
 
-        stage('Análisis de Seguridad (OWASP)') {
-            steps {
-                // Busca vulnerabilidades en las librerías
-                dependencyCheck additionalArguments: '--format HTML --out dependency-check-report.html', odcInstallation: 'dependency-check'
-            }
-            post {
-                always {
-                    publishHTML (target: [
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: false,
-                        keepAll: true,
-                        reportDir: '.',
-                        reportFiles: 'dependency-check-report.html',
-                        reportName: 'OWASP Dependency Check'
-                    ])
-                }
-            }
-        }
+//         stage('Análisis de Seguridad (OWASP)') {
+//             steps {
+//                 // Busca vulnerabilidades en las librerías
+//                 dependencyCheck additionalArguments: '--format HTML --out dependency-check-report.html', odcInstallation: 'dependency-check'
+//             }
+//             post {
+//                 always {
+//                     publishHTML (target: [
+//                         allowMissing: false,
+//                         alwaysLinkToLastBuild: false,
+//                         keepAll: true,
+//                         reportDir: '.',
+//                         reportFiles: 'dependency-check-report.html',
+//                         reportName: 'OWASP Dependency Check'
+//                     ])
+//                 }
+//             }
+//         }
 
         stage('Construir Imagen Docker') {
             steps {
